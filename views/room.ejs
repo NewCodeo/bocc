@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Video Chat</title>
+    <style media="screen">
+      * {
+        margin: 0;
+      }
+      #videoDiv {
+        display: grid;
+        grid-gap: 10px;
+        height: 80vh;
+        position: relative;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        grid-auto-rows: 300px;
+      }
+      #footer {
+        width: 100%;
+        height: 50px;
+        background-color: white;
+        display: flex;
+        justify-content: center;
+        flex: 1;
+        border-bottom: 1px solid grey;
+        margin-top: 10px;
+      }
+      button {
+        height: 30px;
+        width: 80px;
+        margin-top: 10px;
+        text-align: center;
+        border-radius: 10px;
+        outline: none;
+        border: none;
+        text-decoration: none;
+        background-color: red;
+        cursor: pointer;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border: 2px solid white;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.3.2/dist/peerjs.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+  <body>
+    this is the project
+    <div id="videoDiv"></div>
+
+    <script>
+      const socket = io.connect('http://192.168.1.69:3000');
+      const peer = new Peer();
+      let myVideoStream;
+      let myId;
+      const videoGrid = document.getElementById('videoDiv');
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          myVideoStream = stream;
+          addVideoStream(myvideo, stream);
+          peer.on('call', (call) => {
+            call.answer(stream);
+            const vid = document.createElement('video');
+            call.on('stream', (userStream) => {
+              addVideoStream(vid, userStream);
+            });
+            call.on('error', (err) => {
+              alert(err);
+            });
+            call.on('close', () => {
+              vid.remove();
+            });
+          });
+        })
+        .catch((err) => {
+          alert(err.message);
+        });
+
+      peer.on('open', (id) => {
+        myId = id;
+        socket.emit('newUser', id, '<%= roomId %>');
+      });
+
+      peer.on('error', (err) => {
+        alert(err.type);
+      });
+
+      socket.on('userJoined', (id) => {
+        console.log('New user joined');
+        const call = peer.call(id, myVideoStream);
+        const vid = document.createElement('video');
+        call.on('error', (err) => {
+          alert(err);
+        });
+        call.on('stream', (userStream) => {
+          addVideoStream(vid, userStream);
+        });
+        call.on('close', () => {
+          vid.remove();
+          console.log('User disconnected');
+        });
+      });
+
+      socket.on('userDisconnect', (id) => {
+        if (peer.connections[id]) {
+          peer.connections[id].close();
+        }
+      });
+
+      function addVideoStream(video, stream) {
+        video.srcObject = stream;
+        video.addEventListener('loadedmetadata', () => {
+          video.play();
+        });
+        videoGrid.append(video);
+      }
+    </script>
+  </body>
+</html>
